@@ -125,6 +125,7 @@ export const locales = {
       shelf_life_title: "Vida Secundaria de Insumos",
       tap_to_expand: "Toca para ver secuencia",
       holding_time_label: "Tiempo máx.",
+      practice_cta: "Practicar Menú — Modo Juego",
     },
   },
 
@@ -249,6 +250,7 @@ export const locales = {
       shelf_life_title: "Secondary Shelf Life",
       tap_to_expand: "Tap to see sequence",
       holding_time_label: "Max time",
+      practice_cta: "Practice Menu — Game Mode",
     },
   },
 } as const;

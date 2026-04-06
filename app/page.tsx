@@ -21,6 +21,7 @@ import {
   SHELF_LIFE_INDEX,
   SERVICE_TARGETS,
 } from "@/lib/mcmit-data";
+import MenuBuildGame from "./MenuBuildGame";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -50,6 +51,7 @@ const FIVE_S_ICON: Record<FiveSStep, string> = {
 export default function App() {
   const [tab, setTab] = useState<Tab>("events");
   const [lang, setLang] = useState<Lang>("es");
+  const [showMenuGame, setShowMenuGame] = useState(false);
   const [events, setEvents] = useState<FrictionEvent[]>([]);
   const [selected, setSelected] = useState<FrictionEvent | null>(null);
   const [report, setReport] = useState<PACEReport | null>(null);
@@ -164,7 +166,7 @@ export default function App() {
           />
         )}
         {tab === "report" && report && <ReportTab report={report} L={L} />}
-        {tab === "train" && <TrainingTab L={L} />}
+        {tab === "train" && <TrainingTab L={L} onStartGame={() => setShowMenuGame(true)} />}
       </main>
 
       {/* Bottom Nav — 4 columns */}
@@ -178,6 +180,18 @@ export default function App() {
       {/* Event Detail Sheet */}
       {selected && (
         <EventSheet event={selected} onClose={() => setSelected(null)} onResolve={handleResolve} L={L} />
+      )}
+
+      {/* Menu Build Game — fullscreen overlay */}
+      {showMenuGame && (
+        <div className="fixed inset-0 z-50 bg-onyx flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto">
+            <MenuBuildGame
+              lang={lang}
+              onClose={() => setShowMenuGame(false)}
+            />
+          </div>
+        </div>
       )}
     </div>
   );
@@ -578,7 +592,7 @@ function SLabel({ children }: { children: React.ReactNode }) {
 
 // ─── Training Tab ─────────────────────────────────────────────────────────────
 
-function TrainingTab({ L }: { L: ReturnType<typeof getLocale> }) {
+function TrainingTab({ L, onStartGame }: { L: ReturnType<typeof getLocale>; onStartGame: () => void }) {
   const dtMins = Math.floor(SERVICE_TARGETS.DT_WINDOW.target_seconds / 60);
   const dtSecs = SERVICE_TARGETS.DT_WINDOW.target_seconds % 60;
   const fcMins = Math.floor(SERVICE_TARGETS.FRONT_COUNTER.target_seconds / 60);
@@ -684,6 +698,15 @@ function TrainingTab({ L }: { L: ReturnType<typeof getLocale> }) {
           ))}
         </div>
       </div>
+
+      {/* Practice Game CTA */}
+      <button
+        onClick={onStartGame}
+        className="w-full py-5 rounded-2xl bg-gold text-black font-black text-base uppercase tracking-widest active:scale-[0.98] transition-transform flex flex-col items-center gap-1"
+      >
+        <span className="text-2xl leading-none">🎮</span>
+        <span>{L.train.practice_cta}</span>
+      </button>
     </div>
   );
 }
