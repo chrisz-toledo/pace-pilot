@@ -1,8 +1,83 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 import type { Lang } from "@/lib/locales";
 import { MENU_ITEMS, CATEGORY_META, type MenuItem, type MenuCategory } from "@/lib/menu-items";
+
+// ─── Ingredient visual lookup ──────────────────────────────────────────────────
+
+interface IngredientVisual {
+  emoji: string;
+  labelEn: string;
+  labelEs: string;
+}
+
+const STEP_VISUALS: Array<{ pattern: RegExp } & IngredientVisual> = [
+  // Breads & Buns
+  { pattern: /toast.*muffin|english muffin/i,          emoji: "🫓", labelEn: "Toast Muffin", labelEs: "Tostar" },
+  { pattern: /heel|bottom.*bun|bottom.*half/i,          emoji: "🫓", labelEn: "Heel",          labelEs: "Heel" },
+  { pattern: /crown|top.*bun|top.*half/i,               emoji: "🍞", labelEn: "Crown",         labelEs: "Crown" },
+  { pattern: /biscuit/i,                                emoji: "🥯", labelEn: "Biscuit",       labelEs: "Biscuit" },
+  { pattern: /hotcake|pancake/i,                        emoji: "🥞", labelEn: "Hotcake",       labelEs: "Hotcake" },
+  { pattern: /hoagie|roll|bun/i,                        emoji: "🥖", labelEn: "Bun",           labelEs: "Pan" },
+  // Proteins
+  { pattern: /canadian bacon/i,                         emoji: "🥓", labelEn: "Can. Bacon",    labelEs: "Bacon" },
+  { pattern: /bacon/i,                                  emoji: "🥓", labelEn: "Bacon",         labelEs: "Bacon" },
+  { pattern: /sausage patty|sausage/i,                  emoji: "🌭", labelEn: "Sausage",       labelEs: "Salchicha" },
+  { pattern: /mcrib|rib patty/i,                        emoji: "🍖", labelEn: "McRib",         labelEs: "McRib" },
+  { pattern: /beef patty|beef|patty/i,                  emoji: "🥩", labelEn: "Beef",          labelEs: "Res" },
+  { pattern: /fish fillet|filet/i,                      emoji: "🐟", labelEn: "Fish Fillet",   labelEs: "Filete" },
+  { pattern: /chicken|nugget/i,                         emoji: "🍗", labelEn: "Chicken",       labelEs: "Pollo" },
+  { pattern: /round egg|folded egg|scrambled egg|egg/i, emoji: "🥚", labelEn: "Egg",           labelEs: "Huevo" },
+  // Dairy
+  { pattern: /cheddar|american cheese|cheese/i,         emoji: "🧀", labelEn: "Cheese",        labelEs: "Queso" },
+  { pattern: /butter/i,                                 emoji: "🧈", labelEn: "Butter",        labelEs: "Mantequilla" },
+  { pattern: /whipped cream|whip/i,                     emoji: "🍦", labelEn: "Whip Cream",    labelEs: "Crema" },
+  { pattern: /steamed milk|skim milk|milk/i,            emoji: "🥛", labelEn: "Milk",          labelEs: "Leche" },
+  // Vegetables
+  { pattern: /pickle/i,                                 emoji: "🥒", labelEn: "Pickles",       labelEs: "Pepinos" },
+  { pattern: /onion ring|onion/i,                       emoji: "🧅", labelEn: "Onions",        labelEs: "Cebolla" },
+  { pattern: /shredded lettuce|lettuce leaf|lettuce/i,  emoji: "🥬", labelEn: "Lettuce",       labelEs: "Lechuga" },
+  { pattern: /tomato/i,                                 emoji: "🍅", labelEn: "Tomato",        labelEs: "Tomate" },
+  // Sauces
+  { pattern: /special sauce|big mac sauce/i,            emoji: "🫙", labelEn: "Sp. Sauce",     labelEs: "Salsa Esp." },
+  { pattern: /tartar/i,                                 emoji: "🫙", labelEn: "Tartar",        labelEs: "Tártara" },
+  { pattern: /ketchup/i,                                emoji: "🍅", labelEn: "Ketchup",       labelEs: "Ketchup" },
+  { pattern: /mustard/i,                                emoji: "💛", labelEn: "Mustard",       labelEs: "Mostaza" },
+  { pattern: /mayonnaise|mayo/i,                        emoji: "🤍", labelEn: "Mayo",          labelEs: "Mayo" },
+  { pattern: /bbq sauce/i,                              emoji: "🟫", labelEn: "BBQ",           labelEs: "BBQ" },
+  { pattern: /maple syrup|syrup/i,                      emoji: "🍯", labelEn: "Syrup",         labelEs: "Jarabe" },
+  { pattern: /caramel sauce|caramel drizzle|caramel/i,  emoji: "🍮", labelEn: "Caramel",       labelEs: "Caramelo" },
+  { pattern: /chocolate|mocha/i,                        emoji: "🍫", labelEn: "Chocolate",     labelEs: "Chocolate" },
+  { pattern: /vanilla syrup|vanilla/i,                  emoji: "🤍", labelEn: "Vanilla",       labelEs: "Vainilla" },
+  { pattern: /sauce/i,                                  emoji: "🫙", labelEn: "Sauce",         labelEs: "Salsa" },
+  // Drinks
+  { pattern: /espresso shot|espresso/i,                 emoji: "☕", labelEn: "Espresso",      labelEs: "Espresso" },
+  { pattern: /coffee/i,                                 emoji: "☕", labelEn: "Coffee",        labelEs: "Café" },
+  { pattern: /ice/i,                                    emoji: "🧊", labelEn: "Ice",           labelEs: "Hielo" },
+  { pattern: /foam/i,                                   emoji: "☁️", labelEn: "Foam",          labelEs: "Espuma" },
+  { pattern: /cup|fill.*cup|pour/i,                     emoji: "🥤", labelEn: "Cup",           labelEs: "Vaso" },
+  // Toppings
+  { pattern: /oreo|cookie crumble/i,                    emoji: "🍪", labelEn: "Oreo",          labelEs: "Oreo" },
+  { pattern: /blend|mix|stir/i,                         emoji: "🌀", labelEn: "Blend",         labelEs: "Mezclar" },
+  { pattern: /lid|straw|cover/i,                        emoji: "🔴", labelEn: "Lid",           labelEs: "Tapa" },
+  // Sides
+  { pattern: /hash brown/i,                             emoji: "🟫", labelEn: "Hash Brown",    labelEs: "Hash Brown" },
+  { pattern: /fri|potato|basket/i,                      emoji: "🍟", labelEn: "Fries",         labelEs: "Papas" },
+  { pattern: /salt/i,                                   emoji: "🧂", labelEn: "Salt",          labelEs: "Sal" },
+  { pattern: /apple|fruit/i,                            emoji: "🍎", labelEn: "Apple",         labelEs: "Manzana" },
+  { pattern: /dipping/i,                                emoji: "🫙", labelEn: "Dip Sauce",     labelEs: "Salsa" },
+];
+
+function getIngredientVisual(stepText: string): IngredientVisual {
+  for (const v of STEP_VISUALS) {
+    if (v.pattern.test(stepText)) {
+      return { emoji: v.emoji, labelEn: v.labelEn, labelEs: v.labelEs };
+    }
+  }
+  const words = stepText.split(/\s+/).slice(0, 2).join(" ");
+  return { emoji: "🍽️", labelEn: words, labelEs: words };
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -41,6 +116,7 @@ type GameView = "categories" | "items" | "playing" | "result";
 interface ShuffledStep {
   text: string;
   originalIndex: number;
+  visual: IngredientVisual;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -77,13 +153,10 @@ export default function MenuBuildGame({
     close: "✕ Cerrar",
     mastered_of: "dominados",
     steps_label: "pasos",
-    buildInstruction: "Toca los pasos en el orden correcto:",
-    builtSoFar: "Armado hasta ahora",
+    buildInstruction: "¿Cuál va a continuación?",
+    builtSoFar: "Armado",
+    tapFirst: "Empieza a armar",
     mistakesLabel: "error(es)",
-    step: "Paso",
-    perfect: "¡Perfecto! Sin errores",
-    great: "¡Bien! Pocos errores",
-    practice: "Sigue practicando",
     tryAgain: "Intentar de nuevo",
     nextItem: "Siguiente:",
     backToList: "Ver lista",
@@ -98,13 +171,10 @@ export default function MenuBuildGame({
     close: "✕ Close",
     mastered_of: "mastered",
     steps_label: "steps",
-    buildInstruction: "Tap the steps in the correct order:",
-    builtSoFar: "Built so far",
+    buildInstruction: "What goes next?",
+    builtSoFar: "Built",
+    tapFirst: "Start building",
     mistakesLabel: "mistake(s)",
-    step: "Step",
-    perfect: "Perfect! No mistakes",
-    great: "Great! Few mistakes",
-    practice: "Keep practicing",
     tryAgain: "Try again",
     nextItem: "Next:",
     backToList: "Back to list",
@@ -119,17 +189,17 @@ export default function MenuBuildGame({
     [category]
   );
 
-  const getItemSteps = useCallback(
-    (i: MenuItem) => isEs ? i.stepsEs : i.steps,
-    [isEs]
-  );
-
   // ── Game actions ──────────────────────────────────────────────────────────
 
   function startGame(selected: MenuItem) {
-    const steps = getItemSteps(selected);
+    // Always use EN steps for visual matching; display ES text is only for tips
+    const stepsEn = selected.steps;
     const shuffled = shuffle(
-      steps.map((text, originalIndex) => ({ text, originalIndex }))
+      stepsEn.map((text, originalIndex) => ({
+        text,
+        originalIndex,
+        visual: getIngredientVisual(text),
+      }))
     );
     setItem(selected);
     setShuffledSteps(shuffled);
@@ -144,17 +214,15 @@ export default function MenuBuildGame({
   function handleTap(shuffledIdx: number) {
     if (!item || tappedCorrect.has(shuffledIdx)) return;
     const tapped = shuffledSteps[shuffledIdx];
-    const steps = getItemSteps(item);
 
     if (tapped.originalIndex === currentStep) {
-      // ✓ Correct step
       const newTapped = new Set(tappedCorrect);
       newTapped.add(shuffledIdx);
       setTappedCorrect(newTapped);
       const next = currentStep + 1;
       setCurrentStep(next);
 
-      if (next === steps.length) {
+      if (next === item.steps.length) {
         const stars = getStars(mistakes);
         saveMastery(item.id, stars);
         setMastery(loadMastery());
@@ -163,7 +231,6 @@ export default function MenuBuildGame({
         setView("result");
       }
     } else {
-      // ✗ Wrong step
       setMistakes((m) => m + 1);
       setWrongFlashIdx(shuffledIdx);
       setTimeout(() => setWrongFlashIdx(null), 500);
@@ -252,7 +319,6 @@ export default function MenuBuildGame({
         <div className="flex flex-col gap-2">
           {categoryItems.map((menuItem) => {
             const stars = mastery[menuItem.id] ?? 0;
-            const steps = getItemSteps(menuItem);
             return (
               <button
                 key={menuItem.id}
@@ -265,7 +331,7 @@ export default function MenuBuildGame({
                     {isEs ? menuItem.nameEs : menuItem.name}
                   </p>
                   <p className="text-[10px] text-white/40 mt-0.5">
-                    {steps.length} {t.steps_label}
+                    {menuItem.steps.length} {t.steps_label}
                   </p>
                 </div>
                 <div className="flex gap-0.5 shrink-0">
@@ -286,15 +352,15 @@ export default function MenuBuildGame({
     );
   }
 
-  // ── 3. Playing ────────────────────────────────────────────────────────────
+  // ── 3. Playing — Visual Grid ──────────────────────────────────────────────
   if (view === "playing" && item) {
-    const steps = getItemSteps(item);
+    const totalSteps = item.steps.length;
 
-    // Reconstruct built steps in correct order from tappedCorrect
-    const builtSteps: string[] = [];
+    // Built so far: collect emojis in correct order
+    const builtEmojis: string[] = [];
     for (let i = 0; i < currentStep; i++) {
       const found = shuffledSteps.find((s) => s.originalIndex === i);
-      builtSteps.push(found?.text ?? steps[i]);
+      builtEmojis.push(found?.visual.emoji ?? "🍽️");
     }
 
     return (
@@ -313,7 +379,7 @@ export default function MenuBuildGame({
             </p>
           </div>
           <span className="text-[11px] font-black text-white/50 shrink-0">
-            {currentStep}/{steps.length}
+            {currentStep}/{totalSteps}
           </span>
         </div>
 
@@ -321,66 +387,76 @@ export default function MenuBuildGame({
         <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
           <div
             className="h-full bg-gold rounded-full transition-all duration-300"
-            style={{ width: `${(currentStep / steps.length) * 100}%` }}
+            style={{ width: `${(currentStep / totalSteps) * 100}%` }}
           />
         </div>
 
         {/* Mistakes */}
         {mistakes > 0 && (
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-black text-red-400 uppercase tracking-widest">
-              ✗ {mistakes} {t.mistakesLabel}
-            </span>
-          </div>
-        )}
-
-        {/* Built so far */}
-        {builtSteps.length > 0 && (
-          <div className="bg-card rounded-2xl p-3">
-            <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">
-              {t.builtSoFar}
-            </p>
-            <div className="flex flex-col gap-1.5">
-              {builtSteps.map((s, i) => (
-                <div key={i} className="flex items-start gap-2">
-                  <span className="text-[10px] font-black text-gold/70 shrink-0 w-5 pt-0.5">
-                    {i + 1}.
-                  </span>
-                  <span className="text-[11px] text-white/70 leading-snug flex-1">{s}</span>
-                  <span className="text-emerald-400 text-xs shrink-0">✓</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Step picker */}
-        <div>
-          <p className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-2">
-            {t.buildInstruction}
+          <p className="text-[10px] font-black text-red-400 uppercase tracking-widest">
+            ✗ {mistakes} {t.mistakesLabel}
           </p>
-          <div className="flex flex-col gap-2">
-            {shuffledSteps.map((step, i) => {
-              const isDone = tappedCorrect.has(i);
-              const isWrong = wrongFlashIdx === i;
-              return (
-                <button
-                  key={i}
-                  onClick={() => !isDone && handleTap(i)}
-                  disabled={isDone}
-                  className={`w-full text-left px-4 py-3.5 rounded-2xl text-[12px] font-semibold leading-snug transition-all duration-150
-                    ${isDone
-                      ? "bg-emerald-900/30 text-emerald-500/60 line-through cursor-default"
-                      : isWrong
-                      ? "bg-red-600/20 text-red-400 scale-[0.98] border border-red-500/30"
-                      : "bg-card text-cream active:scale-[0.97] active:bg-white/10"
-                    }`}
-                >
-                  {step.text}
-                </button>
-              );
-            })}
-          </div>
+        )}
+
+        {/* Visual assembly strip */}
+        <div className="bg-card rounded-2xl px-3 py-2.5 min-h-[52px] flex flex-col gap-1">
+          <p className="text-[9px] font-black text-white/30 uppercase tracking-widest">
+            {t.builtSoFar}
+          </p>
+          {builtEmojis.length === 0 ? (
+            <p className="text-[10px] text-white/20 italic">{t.tapFirst}</p>
+          ) : (
+            <div className="flex flex-wrap gap-1 items-center">
+              {builtEmojis.map((em, i) => (
+                <span key={i} className="text-xl leading-none">{em}</span>
+              ))}
+              {currentStep < totalSteps && (
+                <span className="text-base text-white/20 animate-pulse ml-1">?</span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Instruction */}
+        <p className="text-[10px] font-black text-white/50 uppercase tracking-widest text-center">
+          {t.buildInstruction}
+        </p>
+
+        {/* Visual ingredient grid */}
+        <div className="grid grid-cols-3 gap-2">
+          {shuffledSteps.map((step, i) => {
+            const isDone = tappedCorrect.has(i);
+            const isWrong = wrongFlashIdx === i;
+            const label = isEs ? step.visual.labelEs : step.visual.labelEn;
+            return (
+              <button
+                key={i}
+                onClick={() => !isDone && handleTap(i)}
+                disabled={isDone}
+                aria-label={label}
+                className={`flex flex-col items-center justify-center gap-1 rounded-2xl p-3 aspect-square transition-all duration-150
+                  ${isDone
+                    ? "bg-emerald-900/20 opacity-25 cursor-default scale-95"
+                    : isWrong
+                    ? "bg-red-600/20 border border-red-500/40 scale-95"
+                    : "bg-card active:scale-95 active:bg-white/10"
+                  }`}
+              >
+                {isDone ? (
+                  <span className="text-3xl leading-none text-emerald-500">✓</span>
+                ) : (
+                  <>
+                    <span className={`text-4xl leading-none transition-transform ${isWrong ? "scale-90" : ""}`}>
+                      {step.visual.emoji}
+                    </span>
+                    <span className="text-[9px] font-bold text-white/50 text-center leading-tight max-w-full line-clamp-2 px-0.5">
+                      {label}
+                    </span>
+                  </>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
     );
@@ -392,9 +468,12 @@ export default function MenuBuildGame({
     const headline = resultStars === 3 ? t.stars3 : resultStars === 2 ? t.stars2 : t.stars1;
     const tip = isEs ? item.tipEs : item.tipEn;
 
+    // Show ingredient strip in correct assembly order
+    const assemblyEmojis = item.steps.map((s) => getIngredientVisual(s).emoji);
+
     return (
       <div className="flex flex-col items-center gap-5 p-6 text-center pb-10">
-        {/* Emoji + stars */}
+        {/* Item emoji + stars */}
         <span className="text-6xl mt-2">{item.emoji}</span>
         <div>
           <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">
@@ -404,9 +483,7 @@ export default function MenuBuildGame({
             {[1, 2, 3].map((s) => (
               <span
                 key={s}
-                className={`text-4xl leading-none transition-all ${
-                  resultStars >= s ? "text-gold" : "text-white/15"
-                }`}
+                className={`text-4xl leading-none transition-all ${resultStars >= s ? "text-gold" : "text-white/15"}`}
               >
                 ★
               </span>
@@ -418,6 +495,18 @@ export default function MenuBuildGame({
               {resultMistakes} {t.mistakesLabel}
             </p>
           )}
+        </div>
+
+        {/* Correct assembly sequence — visual */}
+        <div className="bg-card rounded-2xl px-4 py-3 w-full">
+          <p className="text-[9px] font-black text-white/30 uppercase tracking-widest mb-2 text-left">
+            {isEs ? "Secuencia correcta" : "Correct sequence"}
+          </p>
+          <div className="flex flex-wrap gap-1.5 justify-center">
+            {assemblyEmojis.map((em, i) => (
+              <span key={i} className="text-xl leading-none">{em}</span>
+            ))}
+          </div>
         </div>
 
         {/* Pro tip */}
