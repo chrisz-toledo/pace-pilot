@@ -28,11 +28,12 @@ import EquipmentManuals from "./EquipmentManuals";
 import CoachPanel from "./CoachPanel";
 import TeamCoord from "./TeamCoord";
 import StaffManager from "./StaffManager";
+import ServSafeModule from "./ServSafeModule";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 type Tab = "events" | "log" | "report" | "train" | "manuals";
-type TrainModule = "game" | "flashcards" | "scenarios" | "manuals_inner" | "team" | "staff" | null;
+type TrainModule = "game" | "flashcards" | "scenarios" | "manuals_inner" | "team" | "staff" | "servsafe" | null;
 
 const STATIONS: Station[] = ["DT_WINDOW", "KITCHEN", "LOBBY", "FRONT_COUNTER", "GRILL", "UHC", "BOC"];
 const FRICTION_KEYS: FrictionType[] = ["WAIT_TIME", "STOCK_OUT", "DISORDER", "EQUIPMENT_FAILURE", "PROCEDURE_DEVIATION"];
@@ -184,6 +185,7 @@ export default function App() {
             onStartScenarios={() => setTrainModule("scenarios")}
             onStartTeam={() => setTrainModule("team")}
             onStartStaff={() => setTrainModule("staff")}
+            onStartServSafe={() => setTrainModule("servsafe")}
           />
         )}
         {tab === "manuals" && <ManualsWrapper lang={lang} onOpenEquip={() => setTrainModule("manuals_inner")} />}
@@ -249,6 +251,15 @@ export default function App() {
         <div className="fixed inset-0 z-50 bg-onyx flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto">
             <EquipmentManuals lang={lang} onClose={() => setTrainModule(null)} />
+          </div>
+        </div>
+      )}
+
+      {/* ServSafe Module overlay */}
+      {trainModule === "servsafe" && (
+        <div className="fixed inset-0 z-50 bg-onyx flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto">
+            <ServSafeModule lang={lang} onClose={() => setTrainModule(null)} />
           </div>
         </div>
       )}
@@ -694,7 +705,7 @@ interface TrainingModule {
   action: () => void;
 }
 
-function TrainingHub({ L, lang, onStartGame, onStartFlashcards, onStartScenarios, onStartTeam, onStartStaff }: {
+function TrainingHub({ L, lang, onStartGame, onStartFlashcards, onStartScenarios, onStartTeam, onStartStaff, onStartServSafe }: {
   L: ReturnType<typeof getLocale>;
   lang: Lang;
   onStartGame: () => void;
@@ -702,6 +713,7 @@ function TrainingHub({ L, lang, onStartGame, onStartFlashcards, onStartScenarios
   onStartScenarios: () => void;
   onStartTeam: () => void;
   onStartStaff: () => void;
+  onStartServSafe: () => void;
 }) {
   const isEs = lang === "es";
   const modules: TrainingModule[] = [
@@ -759,6 +771,17 @@ function TrainingHub({ L, lang, onStartGame, onStartFlashcards, onStartScenarios
       timeEs: "⏳ Siempre activo",
       timeEn: "⏳ Always active",
       action: onStartStaff,
+    },
+    {
+      id: "servsafe",
+      emoji: "🛡️",
+      labelEs: "ServSafe 2026 — Obligatorio Semanal",
+      labelEn: "ServSafe 2026 — Weekly Mandatory",
+      descEs: "6 módulos de Food Safety certificados. Retroalimentación semanal obligatoria. Big 6, Temperaturas, FAT TOM, Higiene, Contaminación Cruzada, Sanitización.",
+      descEn: "6 certified Food Safety modules. Mandatory weekly refresher. Big 6, Temperatures, FAT TOM, Hygiene, Cross-Contamination, Sanitizing.",
+      timeEs: "⏳ ~20 min / semana",
+      timeEn: "⏳ ~20 min / week",
+      action: onStartServSafe,
     },
   ];
 
