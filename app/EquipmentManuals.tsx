@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import type { Lang } from "@/lib/locales";
-import { EQUIPMENT_MANUALS, type EquipmentManual, type EquipmentIssue } from "@/lib/equipment-manuals";
+import { EQUIPMENT_MANUALS, type EquipmentManual, type EquipmentIssue, type EquipmentRef } from "@/lib/equipment-manuals";
 
-type ManualView = "equipment" | "issues" | "detail";
+type ManualView = "equipment" | "issues" | "detail" | "manual";
 
 const SEVERITY_STYLE: Record<string, string> = {
   low:      "bg-emerald-900/30 text-emerald-400 border-emerald-500/20",
@@ -35,7 +35,7 @@ export default function EquipmentManuals({
 
   const t = isEs ? {
     title: "Manuales de Equipos",
-    subtitle: "Diagnóstico y soluciones de problemas",
+    subtitle: "Diagnóstico, soluciones y referencia operacional",
     choose: "Elige un equipo:",
     issues: "problemas documentados",
     back: "← Atrás",
@@ -46,9 +46,19 @@ export default function EquipmentManuals({
     escalate: "¿Cuándo escalar?",
     severity: "Severidad",
     model: "Modelo",
+    read_manual: "📖 Leer Manual",
+    view_issues: "🔧 Ver Problemas",
+    overview: "Descripción del Equipo",
+    specs: "Especificaciones",
+    daily: "Mantenimiento Diario",
+    preventive: "Mantenimiento Preventivo",
+    warnings: "⚠️ Advertencias de Seguridad",
+    no_manual: "Manual detallado próximamente.",
+    at_time: "Horario",
+    task: "Tarea",
   } : {
     title: "Equipment Manuals",
-    subtitle: "Troubleshooting and solutions",
+    subtitle: "Troubleshooting, solutions and operational reference",
     choose: "Choose equipment:",
     issues: "documented issues",
     back: "← Back",
@@ -59,6 +69,16 @@ export default function EquipmentManuals({
     escalate: "When to escalate?",
     severity: "Severity",
     model: "Model",
+    read_manual: "📖 Read Manual",
+    view_issues: "🔧 View Issues",
+    overview: "Equipment Overview",
+    specs: "Specifications",
+    daily: "Daily Maintenance",
+    preventive: "Preventive Maintenance",
+    warnings: "⚠️ Safety Warnings",
+    no_manual: "Detailed manual coming soon.",
+    at_time: "Time",
+    task: "Task",
   };
 
   // ── Equipment list ────────────────────────────────────────────────────────
@@ -76,18 +96,140 @@ export default function EquipmentManuals({
         </div>
 
         <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">{t.choose}</p>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="flex flex-col gap-2">
           {EQUIPMENT_MANUALS.map((eq) => (
-            <button
+            <div
               key={eq.id}
-              onClick={() => { setEquipment(eq); setView("issues"); }}
-              className="bg-card rounded-2xl p-4 flex flex-col gap-2 active:scale-[0.97] transition-transform text-left"
+              className="bg-card rounded-2xl p-4 flex items-center gap-3"
             >
-              <span className="text-3xl leading-none">{eq.emoji}</span>
-              <p className="text-[12px] font-black text-cream leading-snug">{isEs ? eq.nameEs : eq.nameEn}</p>
-              <p className="text-[10px] text-white/40">{eq.issues.length} {t.issues}</p>
-            </button>
+              <span className="text-3xl leading-none shrink-0">{eq.emoji}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-black text-cream">{isEs ? eq.nameEs : eq.nameEn}</p>
+                <p className="text-[10px] text-white/40 mt-0.5">{eq.issues.length} {t.issues}</p>
+              </div>
+              <div className="flex flex-col gap-1.5 shrink-0">
+                {eq.ref && (
+                  <button
+                    onClick={() => { setEquipment(eq); setView("manual"); }}
+                    className="text-[10px] font-black px-2.5 py-1.5 rounded-xl bg-gold/20 text-gold active:scale-95 transition-transform"
+                  >
+                    {t.read_manual}
+                  </button>
+                )}
+                <button
+                  onClick={() => { setEquipment(eq); setView("issues"); }}
+                  className="text-[10px] font-black px-2.5 py-1.5 rounded-xl bg-white/10 text-white/60 active:scale-95 transition-transform"
+                >
+                  {t.view_issues}
+                </button>
+              </div>
+            </div>
           ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Manual view ───────────────────────────────────────────────────────────
+  if (view === "manual" && equipment) {
+    const ref = equipment.ref;
+    if (!ref) return (
+      <div className="p-4">
+        <button onClick={() => setView("equipment")} className="text-[11px] font-bold text-white/50">{t.back}</button>
+        <p className="text-sm text-white/40 mt-4">{t.no_manual}</p>
+      </div>
+    );
+
+    return (
+      <div className="flex flex-col gap-4 p-4 pb-8">
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <button onClick={() => setView("equipment")} className="text-[11px] font-bold text-white/50 shrink-0">{t.back}</button>
+          <p className="text-sm font-black text-gold flex items-center gap-2 flex-1">
+            <span>{equipment.emoji}</span>
+            <span>{isEs ? equipment.nameEs : equipment.nameEn}</span>
+          </p>
+        </div>
+
+        {/* Quick access: issues button */}
+        <button
+          onClick={() => setView("issues")}
+          className="w-full py-2.5 rounded-xl bg-white/10 text-[11px] font-black text-white/60 uppercase tracking-widest active:scale-[0.98] transition-transform"
+        >
+          🔧 {t.view_issues} ({equipment.issues.length})
+        </button>
+
+        {/* Overview */}
+        <div className="bg-card rounded-2xl p-4">
+          <p className="text-[9px] font-black text-gold/60 uppercase tracking-widest mb-2">{t.overview}</p>
+          <p className="text-[12px] text-white/75 leading-relaxed">
+            {isEs ? ref.overviewEs : ref.overviewEn}
+          </p>
+          {equipment.model && (
+            <p className="text-[10px] text-white/30 italic mt-2">📋 {t.model}: {equipment.model}</p>
+          )}
+        </div>
+
+        {/* Specs */}
+        <div className="bg-card rounded-2xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-white/10">
+            <p className="text-[9px] font-black text-gold/60 uppercase tracking-widest">
+              📐 {isEs ? ref.specs.titleEs : ref.specs.titleEn}
+            </p>
+          </div>
+          {ref.specs.items.map((item, i) => (
+            <div key={i} className={`flex items-start justify-between px-4 py-3 gap-3 ${i > 0 ? "border-t border-white/5" : ""}`}>
+              <span className="text-[11px] text-white/50 flex-1 leading-snug">{isEs ? item.labelEs : item.labelEn}</span>
+              <span className="text-[11px] font-black text-cream text-right shrink-0">{isEs ? item.valueEs : item.valueEn}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Daily Maintenance */}
+        <div className="bg-card rounded-2xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-white/10">
+            <p className="text-[9px] font-black text-emerald-400/70 uppercase tracking-widest">
+              🗓 {t.daily}
+            </p>
+          </div>
+          {ref.dailyMaintenance.map((task, i) => (
+            <div key={i} className={`px-4 py-3 flex flex-col gap-1 ${i > 0 ? "border-t border-white/5" : ""}`}>
+              <span className="text-[9px] font-black text-gold/60 uppercase tracking-wide">
+                {isEs ? task.timeEs : task.timeEn}
+              </span>
+              <p className="text-[11px] text-white/70 leading-relaxed">
+                {isEs ? task.taskEs : task.taskEn}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* Preventive Maintenance */}
+        <div className="bg-card rounded-2xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-white/10">
+            <p className="text-[9px] font-black text-blue-400/70 uppercase tracking-widest">
+              🔩 {t.preventive}
+            </p>
+          </div>
+          {ref.preventiveMaintenance.items.map((item, i) => (
+            <div key={i} className={`flex items-start justify-between px-4 py-3 gap-3 ${i > 0 ? "border-t border-white/5" : ""}`}>
+              <span className="text-[11px] text-white/50 flex-1 leading-snug">{isEs ? item.labelEs : item.labelEn}</span>
+              <span className="text-[11px] font-black text-cream text-right shrink-0 max-w-[45%]">{isEs ? item.valueEs : item.valueEn}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Safety Warnings */}
+        <div className="bg-red-950/30 border border-red-500/20 rounded-2xl p-4">
+          <p className="text-[9px] font-black text-red-400/80 uppercase tracking-widest mb-3">{t.warnings}</p>
+          <div className="flex flex-col gap-2.5">
+            {ref.safetyWarnings.map((w, i) => (
+              <div key={i} className="flex items-start gap-2">
+                <span className="text-red-400 text-sm shrink-0 mt-0.5">⚠</span>
+                <p className="text-[11px] text-red-200/70 leading-relaxed">{isEs ? w.es : w.en}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -107,6 +249,15 @@ export default function EquipmentManuals({
 
         {equipment.model && (
           <p className="text-[10px] text-white/30 italic">{t.model}: {equipment.model}</p>
+        )}
+
+        {equipment.ref && (
+          <button
+            onClick={() => setView("manual")}
+            className="w-full py-2.5 rounded-xl bg-gold/20 text-gold text-[11px] font-black uppercase tracking-widest active:scale-[0.98] transition-transform"
+          >
+            {t.read_manual}
+          </button>
         )}
 
         <div className="flex flex-col gap-2">
