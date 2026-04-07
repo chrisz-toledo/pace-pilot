@@ -27,11 +27,12 @@ import ScenarioGame from "./ScenarioGame";
 import EquipmentManuals from "./EquipmentManuals";
 import CoachPanel from "./CoachPanel";
 import TeamCoord from "./TeamCoord";
+import StaffManager from "./StaffManager";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 type Tab = "events" | "log" | "report" | "train" | "manuals";
-type TrainModule = "game" | "flashcards" | "scenarios" | "manuals_inner" | "team" | null;
+type TrainModule = "game" | "flashcards" | "scenarios" | "manuals_inner" | "team" | "staff" | null;
 
 const STATIONS: Station[] = ["DT_WINDOW", "KITCHEN", "LOBBY", "FRONT_COUNTER", "GRILL", "UHC", "BOC"];
 const FRICTION_KEYS: FrictionType[] = ["WAIT_TIME", "STOCK_OUT", "DISORDER", "EQUIPMENT_FAILURE", "PROCEDURE_DEVIATION"];
@@ -182,6 +183,7 @@ export default function App() {
             onStartFlashcards={() => setTrainModule("flashcards")}
             onStartScenarios={() => setTrainModule("scenarios")}
             onStartTeam={() => setTrainModule("team")}
+            onStartStaff={() => setTrainModule("staff")}
           />
         )}
         {tab === "manuals" && <ManualsWrapper lang={lang} onOpenEquip={() => setTrainModule("manuals_inner")} />}
@@ -247,6 +249,15 @@ export default function App() {
         <div className="fixed inset-0 z-50 bg-onyx flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto">
             <EquipmentManuals lang={lang} onClose={() => setTrainModule(null)} />
+          </div>
+        </div>
+      )}
+
+      {/* Staff Manager overlay */}
+      {trainModule === "staff" && (
+        <div className="fixed inset-0 z-50 bg-onyx flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto">
+            <StaffManager lang={lang} onClose={() => setTrainModule(null)} />
           </div>
         </div>
       )}
@@ -683,13 +694,14 @@ interface TrainingModule {
   action: () => void;
 }
 
-function TrainingHub({ L, lang, onStartGame, onStartFlashcards, onStartScenarios, onStartTeam }: {
+function TrainingHub({ L, lang, onStartGame, onStartFlashcards, onStartScenarios, onStartTeam, onStartStaff }: {
   L: ReturnType<typeof getLocale>;
   lang: Lang;
   onStartGame: () => void;
   onStartFlashcards: () => void;
   onStartScenarios: () => void;
   onStartTeam: () => void;
+  onStartStaff: () => void;
 }) {
   const isEs = lang === "es";
   const modules: TrainingModule[] = [
@@ -736,6 +748,17 @@ function TrainingHub({ L, lang, onStartGame, onStartFlashcards, onStartScenarios
       timeEs: "⏳ 5–10 min",
       timeEn: "⏳ 5–10 min",
       action: onStartTeam,
+    },
+    {
+      id: "staff",
+      emoji: "📊",
+      labelEs: "Evaluación 360° del Equipo",
+      labelEn: "360° Team Evaluation",
+      descEs: "GM organiza turnos. GM + MI + MiT califican. Perfiles con contraste de perspectivas.",
+      descEn: "GM organizes shifts. GM + MI + MiT rate. Profiles with perspective contrast.",
+      timeEs: "⏳ Siempre activo",
+      timeEn: "⏳ Always active",
+      action: onStartStaff,
     },
   ];
 
