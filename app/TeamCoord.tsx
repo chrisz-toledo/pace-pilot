@@ -6,7 +6,7 @@
  * Teaches shift handoff, peer coordination, communication protocols and role clarity.
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   HANDOFF_SECTIONS,
   TEAM_SCENARIOS,
@@ -18,8 +18,41 @@ import {
   type RoleCard,
 } from "@/lib/team-data";
 
-type View = "menu" | "handoff" | "scenarios" | "protocols" | "roles";
+type View = "menu" | "handoff" | "scenarios" | "protocols" | "roles" | "roster";
 type ScenarioPhase = "list" | "playing" | "result";
+type RosterView = "list" | "add" | "edit" | "aces";
+
+// ─── Roster types ─────────────────────────────────────────────────────────────
+
+const SKILL_AREAS = [
+  { id: "dt",       emoji: "🚗", es: "DT Cobros",       en: "DT Payments"     },
+  { id: "grill",    emoji: "🥩", es: "Parrilla",         en: "Grill"           },
+  { id: "assembly", emoji: "🍔", es: "Ensamble",         en: "Assembly"        },
+  { id: "fc",       emoji: "🧾", es: "Mostrador FC",     en: "Front Counter"   },
+  { id: "mccafe",   emoji: "☕", es: "McCafé",           en: "McCafé"          },
+  { id: "lobby",    emoji: "🧹", es: "Lobby/Limpieza",   en: "Lobby/Cleaning"  },
+  { id: "safety",   emoji: "🛡️", es: "Food Safety",     en: "Food Safety"     },
+  { id: "speed",    emoji: "⚡", es: "Velocidad Gral.",  en: "Overall Speed"   },
+] as const;
+
+type SkillId = typeof SKILL_AREAS[number]["id"];
+
+interface CrewMember {
+  id: string;
+  name: string;
+  position: string; // e.g. "Crew", "MiT", "MI"
+  ratings: Partial<Record<SkillId, number>>; // 1–5
+}
+
+const ROSTER_KEY = "pace_crew_roster";
+
+function loadRoster(): CrewMember[] {
+  if (typeof window === "undefined") return [];
+  try { return JSON.parse(localStorage.getItem(ROSTER_KEY) ?? "[]"); } catch { return []; }
+}
+function saveRoster(r: CrewMember[]) {
+  localStorage.setItem(ROSTER_KEY, JSON.stringify(r));
+}
 
 interface TeamCoordProps {
   lang: "es" | "en";
@@ -45,6 +78,81 @@ export default function TeamCoord({ lang, onClose }: TeamCoordProps) {
 
   // ── Roles state ─────────────────────────────────────────────────────────────
   const [expandedRole, setExpandedRole] = useState<number | null>(null);
+
+  // ── Roster state ─────────────────────────────────────────────────────────────
+  const [roster, setRoster] = useState<CrewMember[]>([]);
+  const [rosterView, setRosterView] = useState<RosterView>("list");
+  const [editingMember, setEditingMember] = useState<CrewMember | null>(null);
+  const [draftName, setDraftName] = useState("");
+  const [draftPosition, setDraftPosition] = useState("Crew");
+  const [draftRatings, setDraftRatings] = useState<Partial<Record<SkillId, number>>>({});
+
+  useEffect(() => { setRoster(loadRoster()); }, []);
+
+  function saveAndSetRoster(r: CrewMember[]) {
+    saveRoster(r);
+    setRoster(r);
+  }
+
+  function openAdd() {
+    setEditingMember(null);
+    setDraftName("");
+    setDraftPosition("Crew");
+    setDraftRatings({});
+    setRosterView("add");
+  }
+
+  function openEdit(member: CrewMember) {
+    setEditingMember(member);
+    setDraftName(member.name);
+    setDraftPosition(member.position);
+    setDraftRatings({ ...member.ratings });
+    setRosterView("edit");
+  }
+
+  function saveDraft() {
+    if (!draftName.trim()) return;
+    if (editingMember) {
+      const updated = roster.map((m) =>
+        m.id === editingMember.id
+          ? { ...m, name: draftName.trim(), position: draftPosition, ratings: draftRatings }
+          : m
+      );
+      saveAndSetRoster(updated);
+    } else {
+      const newMember: CrewMember = {
+        id: crypto.randomUUID(),
+        name: draftName.trim(),
+        position: draftPosition,
+        ratings: draftRatings,
+      };
+      saveAndSetRoster([...roster, newMember]);
+    }
+    setRosterView("list");
+  }
+
+  function deleteMember(id: string) {
+    saveAndSetRoster(roster.filter((m) => m.id !== id));
+    setRosterView("list");
+  }
+
+  function avgRating(member: CrewMember): number {
+    const vals = Object.values(member.ratings).filter((v) => v !== undefined) as number[];
+    if (!vals.length) return 0;
+    return vals.reduce((a, b) => a + b, 0) / vals.length;
+  }
+
+  // For each skill, find the member(s) with the highest rating
+  function getAces(): Record<SkillId, CrewMember[]> {
+    const result = {} as Record<SkillId, CrewMember[]>;
+    for (const skill of SKILL_AREAS) {
+      const rated = roster.filter((m) => (m.ratings[skill.id] ?? 0) >= 3);
+      if (!rated.length) { result[skill.id] = []; continue; }
+      const maxScore = Math.max(...rated.map((m) => m.ratings[skill.id] ?? 0));
+      result[skill.id] = rated.filter((m) => m.ratings[skill.id] === maxScore);
+    }
+    return result;
+  }
 
   // ─── Handoff helpers ────────────────────────────────────────────────────────
   function toggleCheck(id: string) {
@@ -411,6 +519,267 @@ export default function TeamCoord({ lang, onClose }: TeamCoordProps) {
     );
   }
 
+  // ─── Roster view ─────────────────────────────────────────────────────────────
+
+  if (view === "roster") {
+    const aces = getAces();
+
+    // ── Add / Edit form ────────────────────────────────────────────────────────
+    if (rosterView === "add" || rosterView === "edit") {
+      return (
+        <div className="flex flex-col h-full">
+          <TopBar
+            title={rosterView === "add"
+              ? (isEs ? "Agregar Crew" : "Add Crew Member")
+              : (isEs ? "Editar Perfil" : "Edit Profile")}
+            onBack={() => setRosterView("list")}
+            onClose={onClose}
+          />
+          <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-4 pb-8">
+            {/* Name */}
+            <div>
+              <p className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-1.5 px-1">
+                {isEs ? "Nombre" : "Name"}
+              </p>
+              <input
+                className="w-full bg-card rounded-xl px-4 py-3 text-sm text-cream placeholder-white/20 border border-white/10 focus:outline-none focus:border-gold/40"
+                placeholder={isEs ? "Nombre del crew..." : "Crew name..."}
+                value={draftName}
+                onChange={(e) => setDraftName(e.target.value)}
+                maxLength={30}
+              />
+            </div>
+
+            {/* Position */}
+            <div>
+              <p className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-1.5 px-1">
+                {isEs ? "Posición" : "Position"}
+              </p>
+              <div className="flex gap-2 flex-wrap">
+                {["Crew", "MiT", "MI"].map((pos) => (
+                  <button
+                    key={pos}
+                    onClick={() => setDraftPosition(pos)}
+                    className={`px-4 py-2 rounded-xl text-xs font-black transition-colors ${
+                      draftPosition === pos
+                        ? "bg-gold text-onyx"
+                        : "bg-card text-white/50"
+                    }`}
+                  >
+                    {pos}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Ratings */}
+            <div>
+              <p className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-2 px-1">
+                {isEs ? "Calificación por Área (1–5 ★)" : "Rating by Area (1–5 ★)"}
+              </p>
+              <div className="flex flex-col gap-2">
+                {SKILL_AREAS.map((skill) => (
+                  <div key={skill.id} className="bg-card rounded-xl p-3 flex items-center gap-3">
+                    <span className="text-xl shrink-0">{skill.emoji}</span>
+                    <span className="flex-1 text-xs font-bold text-cream">
+                      {isEs ? skill.es : skill.en}
+                    </span>
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          onClick={() =>
+                            setDraftRatings((prev) => ({
+                              ...prev,
+                              [skill.id]: prev[skill.id] === star ? undefined : star,
+                            }))
+                          }
+                          className={`text-lg leading-none transition-opacity ${
+                            (draftRatings[skill.id] ?? 0) >= star
+                              ? "text-gold"
+                              : "text-white/20"
+                          }`}
+                        >
+                          ★
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={saveDraft}
+              disabled={!draftName.trim()}
+              className="bg-gold rounded-2xl py-3 text-sm font-black text-onyx tracking-wide active:opacity-80 disabled:opacity-30"
+            >
+              {isEs ? "Guardar" : "Save"}
+            </button>
+
+            {rosterView === "edit" && editingMember && (
+              <button
+                onClick={() => deleteMember(editingMember.id)}
+                className="rounded-2xl py-3 text-sm font-black text-red-400 border border-red-500/20 active:opacity-80"
+              >
+                {isEs ? "Eliminar del Roster" : "Remove from Roster"}
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // ── Aces board ─────────────────────────────────────────────────────────────
+    if (rosterView === "aces") {
+      return (
+        <div className="flex flex-col h-full">
+          <TopBar
+            title={isEs ? "Tablero de Aces" : "Aces Board"}
+            onBack={() => setRosterView("list")}
+            onClose={onClose}
+          />
+          <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2 pb-8">
+            <p className="text-[11px] text-white/40 leading-relaxed px-1 mb-1">
+              {isEs
+                ? "Los mejores calificados por área. Úsalo para armar las posiciones del turno."
+                : "Top-rated crew per area. Use this to build your shift positions board."}
+            </p>
+            {SKILL_AREAS.map((skill) => {
+              const topCrew = aces[skill.id];
+              return (
+                <div key={skill.id} className="bg-card rounded-2xl p-3 flex items-center gap-3">
+                  <span className="text-2xl shrink-0">{skill.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">
+                      {isEs ? skill.es : skill.en}
+                    </p>
+                    {topCrew.length === 0 ? (
+                      <p className="text-xs text-white/25 italic mt-0.5">
+                        {isEs ? "Sin asignar" : "Unassigned"}
+                      </p>
+                    ) : (
+                      <p className="text-sm font-black text-cream mt-0.5">
+                        {topCrew.map((m) => m.name).join(" · ")}
+                        <span className="text-gold ml-1.5">
+                          {"★".repeat(topCrew[0].ratings[skill.id] ?? 0)}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                  {topCrew.length > 0 && (
+                    <span className="text-[9px] font-black bg-gold/20 text-gold px-2 py-0.5 rounded-full shrink-0">
+                      ACE
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    // ── Roster list ────────────────────────────────────────────────────────────
+    return (
+      <div className="flex flex-col h-full">
+        <TopBar
+          title={isEs ? "Roster del Equipo" : "Team Roster"}
+          onBack={() => setView("menu")}
+          onClose={onClose}
+        />
+        <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 pb-8">
+          {roster.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-16 text-white/30">
+              <span className="text-5xl">👥</span>
+              <p className="text-sm font-bold text-center">
+                {isEs ? "Agrega tu primer crew\npara comenzar." : "Add your first crew\nmember to start."}
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Aces button */}
+              <button
+                onClick={() => setRosterView("aces")}
+                className="bg-gold/10 border border-gold/20 rounded-2xl p-3 flex items-center gap-3 active:opacity-80"
+              >
+                <span className="text-2xl">♠️</span>
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-black text-gold">
+                    {isEs ? "Ver Tablero de Aces" : "View Aces Board"}
+                  </p>
+                  <p className="text-[10px] text-white/40">
+                    {isEs ? "Quién es mejor en qué área del restaurante" : "Who's best at which area of the restaurant"}
+                  </p>
+                </div>
+                <span className="text-white/30 text-lg shrink-0">›</span>
+              </button>
+
+              {/* Crew list */}
+              {roster.map((member) => {
+                const avg = avgRating(member);
+                const strengths = SKILL_AREAS.filter((s) => (member.ratings[s.id] ?? 0) >= 4);
+                const weaknesses = SKILL_AREAS.filter((s) => {
+                  const r = member.ratings[s.id];
+                  return r !== undefined && r <= 2;
+                });
+                return (
+                  <button
+                    key={member.id}
+                    onClick={() => openEdit(member)}
+                    className="bg-card rounded-2xl p-4 text-left active:scale-[0.98] transition-transform"
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-sm font-black text-white/70 shrink-0">
+                        {member.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-black text-cream truncate">{member.name}</p>
+                          <span className="text-[9px] font-black bg-white/10 text-white/50 px-1.5 py-0.5 rounded-full shrink-0">
+                            {member.position}
+                          </span>
+                        </div>
+                        {avg > 0 && (
+                          <p className="text-[10px] text-gold mt-0.5">
+                            {"★".repeat(Math.round(avg))}{"☆".repeat(5 - Math.round(avg))}
+                            <span className="text-white/30 ml-1">{avg.toFixed(1)}</span>
+                          </p>
+                        )}
+                      </div>
+                      <span className="text-white/30 text-lg shrink-0">›</span>
+                    </div>
+                    {strengths.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {strengths.map((s) => (
+                          <span key={s.id} className="text-[9px] font-bold bg-emerald-950/40 text-emerald-400 px-1.5 py-0.5 rounded-full">
+                            {s.emoji} {isEs ? s.es : s.en}
+                          </span>
+                        ))}
+                        {weaknesses.map((s) => (
+                          <span key={s.id} className="text-[9px] font-bold bg-red-950/30 text-red-400/70 px-1.5 py-0.5 rounded-full">
+                            {s.emoji} {isEs ? s.es : s.en}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </>
+          )}
+
+          <button
+            onClick={openAdd}
+            className="bg-gold rounded-2xl py-3 text-sm font-black text-onyx tracking-wide active:opacity-80 mt-1"
+          >
+            + {isEs ? "Agregar Crew al Roster" : "Add Crew to Roster"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // ─── Main Menu ───────────────────────────────────────────────────────────────
   const menuItems = [
     {
@@ -445,6 +814,14 @@ export default function TeamCoord({ lang, onClose }: TeamCoordProps) {
       descEs: "Qué hace — y qué nunca hace — cada rol del equipo MI/MIT.",
       descEn: "What each MI/MIT team role does — and never does.",
     },
+    {
+      view: "roster" as View,
+      emoji: "👥",
+      labelEs: "Roster del Equipo",
+      labelEn: "Team Roster",
+      descEs: `Califica a tu crew por área y descubre quiénes son los Aces de tu turno.${roster.length > 0 ? ` · ${roster.length} crew` : ""}`,
+      descEn: `Rate your crew by area and discover who your shift Aces are.${roster.length > 0 ? ` · ${roster.length} crew` : ""}`,
+    },
   ];
 
   return (
@@ -471,12 +848,13 @@ export default function TeamCoord({ lang, onClose }: TeamCoordProps) {
         </div>
 
         {/* Quick stats */}
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-5 gap-1.5">
           {[
-            { n: "17", label: isEs ? "Ítems handoff" : "Handoff items" },
+            { n: "17", label: isEs ? "Handoff" : "Handoff" },
             { n: "5", label: isEs ? "Escenarios" : "Scenarios" },
             { n: "4", label: isEs ? "Protocolos" : "Protocols" },
             { n: "4", label: isEs ? "Roles" : "Roles" },
+            { n: String(roster.length || "—"), label: isEs ? "Mi Crew" : "My Crew" },
           ].map((s) => (
             <div key={s.n} className="bg-card rounded-xl p-2 text-center">
               <p className="text-lg font-black text-gold">{s.n}</p>
