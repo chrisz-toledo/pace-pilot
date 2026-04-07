@@ -28,7 +28,8 @@ function loadDone(): Record<string, string[]> {
 function markModuleDone(moduleId: string) {
   const done = loadDone();
   const wk = getWeekKey();
-  done[wk] = [...new Set([...(done[wk] ?? []), moduleId])];
+  const existing = done[wk] ?? [];
+  if (!existing.includes(moduleId)) done[wk] = [...existing, moduleId];
   localStorage.setItem(SS_KEY, JSON.stringify(done));
 }
 
