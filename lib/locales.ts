@@ -15,6 +15,7 @@ export const locales = {
       log: "Registrar",
       report: "Reporte",
       train: "Entrenar",
+      manuals: "Manuales",
     },
     header: {
       reset: "Reset",
@@ -140,6 +141,7 @@ export const locales = {
       log: "Log",
       report: "Report",
       train: "Train",
+      manuals: "Manuals",
     },
     header: {
       reset: "Reset",

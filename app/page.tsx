@@ -22,10 +22,15 @@ import {
   SERVICE_TARGETS,
 } from "@/lib/mcmit-data";
 import MenuBuildGame from "./MenuBuildGame";
+import FlashcardGame from "./FlashcardGame";
+import ScenarioGame from "./ScenarioGame";
+import EquipmentManuals from "./EquipmentManuals";
+import CoachPanel from "./CoachPanel";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-type Tab = "events" | "log" | "report" | "train";
+type Tab = "events" | "log" | "report" | "train" | "manuals";
+type TrainModule = "game" | "flashcards" | "scenarios" | "manuals_inner" | null;
 
 const STATIONS: Station[] = ["DT_WINDOW", "KITCHEN", "LOBBY", "FRONT_COUNTER", "GRILL", "UHC", "BOC"];
 const FRICTION_KEYS: FrictionType[] = ["WAIT_TIME", "STOCK_OUT", "DISORDER", "EQUIPMENT_FAILURE", "PROCEDURE_DEVIATION"];
@@ -52,6 +57,8 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("events");
   const [lang, setLang] = useState<Lang>("es");
   const [showMenuGame, setShowMenuGame] = useState(false);
+  const [trainModule, setTrainModule] = useState<TrainModule>(null);
+  const [coachCtx, setCoachCtx] = useState<{ module: string; correct: number; total: number; details?: string } | null>(null);
   const [events, setEvents] = useState<FrictionEvent[]>([]);
   const [selected, setSelected] = useState<FrictionEvent | null>(null);
   const [report, setReport] = useState<PACEReport | null>(null);
@@ -166,15 +173,25 @@ export default function App() {
           />
         )}
         {tab === "report" && report && <ReportTab report={report} L={L} />}
-        {tab === "train" && <TrainingTab L={L} onStartGame={() => setShowMenuGame(true)} />}
+        {tab === "train" && (
+          <TrainingHub
+            L={L}
+            lang={lang}
+            onStartGame={() => setShowMenuGame(true)}
+            onStartFlashcards={() => setTrainModule("flashcards")}
+            onStartScenarios={() => setTrainModule("scenarios")}
+          />
+        )}
+        {tab === "manuals" && <ManualsWrapper lang={lang} onOpenEquip={() => setTrainModule("manuals_inner")} />}
       </main>
 
-      {/* Bottom Nav — 4 columns */}
-      <nav className="shrink-0 grid grid-cols-4 bg-surface border-t border-white/10 pb-safe">
+      {/* Bottom Nav — 5 columns */}
+      <nav className="shrink-0 grid grid-cols-5 bg-surface border-t border-white/10 pb-safe">
         <NavBtn active={tab === "events"} onClick={() => setTab("events")} icon="📋" label={L.nav.events} />
         <NavBtn active={tab === "log"} onClick={() => setTab("log")} icon="+" label={L.nav.log} gold />
         <NavBtn active={tab === "report"} onClick={() => setTab("report")} icon="📊" label={L.nav.report} />
         <NavBtn active={tab === "train"} onClick={() => setTab("train")} icon="📚" label={L.nav.train} />
+        <NavBtn active={tab === "manuals"} onClick={() => setTab("manuals")} icon="🔧" label={L.nav.manuals} />
       </nav>
 
       {/* Event Detail Sheet */}
@@ -186,12 +203,63 @@ export default function App() {
       {showMenuGame && (
         <div className="fixed inset-0 z-50 bg-onyx flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto">
-            <MenuBuildGame
+            <MenuBuildGame lang={lang} onClose={() => setShowMenuGame(false)} />
+          </div>
+        </div>
+      )}
+
+      {/* Flashcard Game overlay */}
+      {trainModule === "flashcards" && (
+        <div className="fixed inset-0 z-50 bg-onyx flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto">
+            <FlashcardGame
               lang={lang}
-              onClose={() => setShowMenuGame(false)}
+              onClose={() => setTrainModule(null)}
+              onCoach={(correct, total) => {
+                setTrainModule(null);
+                setCoachCtx({ module: "flashcards", correct, total });
+              }}
             />
           </div>
         </div>
+      )}
+
+      {/* Scenario Game overlay */}
+      {trainModule === "scenarios" && (
+        <div className="fixed inset-0 z-50 bg-onyx flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto">
+            <ScenarioGame
+              lang={lang}
+              onClose={() => setTrainModule(null)}
+              onCoach={(correct, total, details) => {
+                setTrainModule(null);
+                setCoachCtx({ module: "scenarios", correct, total, details });
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Equipment Manuals overlay (from training hub) */}
+      {trainModule === "manuals_inner" && (
+        <div className="fixed inset-0 z-50 bg-onyx flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto">
+            <EquipmentManuals lang={lang} onClose={() => setTrainModule(null)} />
+          </div>
+        </div>
+      )}
+
+      {/* Coach IA Panel */}
+      {coachCtx && (
+        <CoachPanel
+          lang={lang}
+          module={coachCtx.module}
+          role={form.reporter_role}
+          correct={coachCtx.correct}
+          total={coachCtx.total}
+          details={coachCtx.details}
+          onClose={() => setCoachCtx(null)}
+        />
       )}
     </div>
   );
@@ -590,7 +658,100 @@ function SLabel({ children }: { children: React.ReactNode }) {
   return <p className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">{children}</p>;
 }
 
-// ─── Training Tab ─────────────────────────────────────────────────────────────
+// ─── Training Hub ─────────────────────────────────────────────────────────────
+
+interface TrainingModule {
+  id: string;
+  emoji: string;
+  labelEs: string;
+  labelEn: string;
+  descEs: string;
+  descEn: string;
+  timeEs: string;
+  timeEn: string;
+  action: () => void;
+}
+
+function TrainingHub({ L, lang, onStartGame, onStartFlashcards, onStartScenarios }: {
+  L: ReturnType<typeof getLocale>;
+  lang: Lang;
+  onStartGame: () => void;
+  onStartFlashcards: () => void;
+  onStartScenarios: () => void;
+}) {
+  const isEs = lang === "es";
+  const modules: TrainingModule[] = [
+    {
+      id: "game",
+      emoji: "🎮",
+      labelEs: "Menú — Modo Juego",
+      labelEn: "Menu — Game Mode",
+      descEs: "Arma cada producto del menú 2026 en el orden correcto. Entrena la memoria visual.",
+      descEn: "Build every 2026 menu item in the correct order. Train visual memory.",
+      timeEs: "⏳ 2–5 min",
+      timeEn: "⏳ 2–5 min",
+      action: onStartGame,
+    },
+    {
+      id: "flashcards",
+      emoji: "📇",
+      labelEs: "Flashcards de Estándares",
+      labelEn: "Standards Flashcards",
+      descEs: "Temperaturas, tiempos críticos y estándares por estación. Repaso espaciado.",
+      descEn: "Temperatures, critical times and standards by station. Spaced repetition.",
+      timeEs: "⏳ 2 min / estación",
+      timeEn: "⏳ 2 min / station",
+      action: onStartFlashcards,
+    },
+    {
+      id: "scenarios",
+      emoji: "🔴",
+      labelEs: "Sandbox Shift Manager",
+      labelEn: "Shift Manager Sandbox",
+      descEs: "Resuelve crisis operacionales reales. DT, Parrilla, HR y Food Safety.",
+      descEn: "Resolve real operational crises. DT, Grill, HR and Food Safety.",
+      timeEs: "⏳ 4 min / zona",
+      timeEn: "⏳ 4 min / zone",
+      action: onStartScenarios,
+    },
+  ];
+
+  return (
+    <div className="p-3 flex flex-col gap-4 pb-8">
+      {/* Header */}
+      <div className="bg-card rounded-2xl p-4 border border-gold/20">
+        <p className="text-[10px] font-black text-gold/60 uppercase tracking-widest mb-1">{L.train.subtitle}</p>
+        <p className="text-xl font-black text-gold">{L.train.title}</p>
+        <p className="text-xs text-white/50 mt-1.5 leading-relaxed">{L.train.description}</p>
+      </div>
+
+      {/* Interactive Modules */}
+      <div>
+        <SectionLabel>{isEs ? "Módulos Interactivos" : "Interactive Modules"}</SectionLabel>
+        <div className="flex flex-col gap-2">
+          {modules.map((m) => (
+            <button
+              key={m.id}
+              onClick={m.action}
+              className="bg-card rounded-2xl p-4 flex items-center gap-3 active:scale-[0.98] transition-transform text-left"
+            >
+              <span className="text-3xl leading-none shrink-0">{m.emoji}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-black text-cream">{isEs ? m.labelEs : m.labelEn}</p>
+                <p className="text-[10px] text-white/40 mt-0.5 leading-snug">{isEs ? m.descEs : m.descEn}</p>
+                <p className="text-[10px] text-gold/50 mt-1">{isEs ? m.timeEs : m.timeEn}</p>
+              </div>
+              <span className="text-white/30 text-lg shrink-0">›</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Static reference content below */}
+      <TrainingTab L={L} onStartGame={onStartGame} />
+    </div>
+  );
+}
 
 function TrainingTab({ L, onStartGame }: { L: ReturnType<typeof getLocale>; onStartGame: () => void }) {
   const dtMins = Math.floor(SERVICE_TARGETS.DT_WINDOW.target_seconds / 60);
@@ -599,13 +760,8 @@ function TrainingTab({ L, onStartGame }: { L: ReturnType<typeof getLocale>; onSt
   const fcSecs = SERVICE_TARGETS.FRONT_COUNTER.target_seconds % 60;
 
   return (
-    <div className="p-3 flex flex-col gap-4 pb-8">
-      {/* Module header */}
-      <div className="bg-card rounded-2xl p-4 border border-gold/20">
-        <p className="text-[10px] font-black text-gold/60 uppercase tracking-widest mb-1">{L.train.subtitle}</p>
-        <p className="text-xl font-black text-gold">{L.train.title}</p>
-        <p className="text-xs text-white/50 mt-1.5 leading-relaxed">{L.train.description}</p>
-      </div>
+    <div className="flex flex-col gap-4 pb-4">
+      {/* Static reference material — no header duplicated here */}
 
       {/* 5S Methodology */}
       <div>
@@ -699,14 +855,46 @@ function TrainingTab({ L, onStartGame }: { L: ReturnType<typeof getLocale>; onSt
         </div>
       </div>
 
-      {/* Practice Game CTA */}
+    </div>
+  );
+}
+
+// ─── Manuals Wrapper Tab ──────────────────────────────────────────────────────
+
+function ManualsWrapper({ lang, onOpenEquip }: { lang: Lang; onOpenEquip: () => void }) {
+  const isEs = lang === "es";
+  return (
+    <div className="p-4 pb-8 flex flex-col gap-4">
+      <div className="bg-card rounded-2xl p-4 border border-gold/20">
+        <p className="text-[10px] font-black text-gold/60 uppercase tracking-widest mb-1">
+          {isEs ? "Referencia Técnica" : "Technical Reference"}
+        </p>
+        <p className="text-xl font-black text-gold">
+          {isEs ? "Manuales de Equipos" : "Equipment Manuals"}
+        </p>
+        <p className="text-xs text-white/50 mt-1.5 leading-relaxed">
+          {isEs
+            ? "Diagnóstico de fallas y protocolos de solución para los equipos críticos de cocina."
+            : "Fault diagnosis and solution protocols for critical kitchen equipment."}
+        </p>
+      </div>
       <button
-        onClick={onStartGame}
+        onClick={onOpenEquip}
         className="w-full py-5 rounded-2xl bg-gold text-black font-black text-base uppercase tracking-widest active:scale-[0.98] transition-transform flex flex-col items-center gap-1"
       >
-        <span className="text-2xl leading-none">🎮</span>
-        <span>{L.train.practice_cta}</span>
+        <span className="text-2xl leading-none">🔧</span>
+        <span>{isEs ? "Abrir Manuales" : "Open Manuals"}</span>
       </button>
+      <div className="bg-card rounded-2xl p-4">
+        <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">
+          {isEs ? "Equipos documentados" : "Documented equipment"}
+        </p>
+        <div className="flex flex-col gap-1.5">
+          {["🍟 Freidora de Papas", "🌡️ Gabinete UHC", "🍖 Parrilla / Grill", "🍦 Máquina de Helado", "☕ McCafé Espresso", "🖥️ POS / Kioscos", "❄️ Walk-In Freezer"].map((item) => (
+            <p key={item} className="text-[11px] text-white/60">{item}</p>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
