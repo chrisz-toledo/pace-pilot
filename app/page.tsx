@@ -29,11 +29,12 @@ import CoachPanel from "./CoachPanel";
 import TeamCoord from "./TeamCoord";
 import StaffManager from "./StaffManager";
 import ServSafeModule from "./ServSafeModule";
+import HandoffGame from "./HandoffGame";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 type Tab = "events" | "log" | "report" | "train" | "manuals";
-type TrainModule = "game" | "flashcards" | "scenarios" | "manuals_inner" | "team" | "staff" | "servsafe" | null;
+type TrainModule = "game" | "flashcards" | "scenarios" | "manuals_inner" | "team" | "staff" | "servsafe" | "handoff" | null;
 
 const STATIONS: Station[] = ["DT_WINDOW", "KITCHEN", "LOBBY", "FRONT_COUNTER", "GRILL", "UHC", "BOC"];
 const FRICTION_KEYS: FrictionType[] = ["WAIT_TIME", "STOCK_OUT", "DISORDER", "EQUIPMENT_FAILURE", "PROCEDURE_DEVIATION"];
@@ -186,6 +187,7 @@ export default function App() {
             onStartTeam={() => setTrainModule("team")}
             onStartStaff={() => setTrainModule("staff")}
             onStartServSafe={() => setTrainModule("servsafe")}
+            onStartHandoff={() => setTrainModule("handoff")}
           />
         )}
         {tab === "manuals" && <ManualsWrapper lang={lang} onOpenEquip={() => setTrainModule("manuals_inner")} />}
@@ -278,6 +280,15 @@ export default function App() {
         <div className="fixed inset-0 z-50 bg-onyx flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto">
             <TeamCoord lang={lang} onClose={() => setTrainModule(null)} />
+          </div>
+        </div>
+      )}
+
+      {/* Handoff Missions overlay */}
+      {trainModule === "handoff" && (
+        <div className="fixed inset-0 z-50 bg-onyx flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto">
+            <HandoffGame lang={lang} onClose={() => setTrainModule(null)} />
           </div>
         </div>
       )}
@@ -705,7 +716,7 @@ interface TrainingModule {
   action: () => void;
 }
 
-function TrainingHub({ L, lang, onStartGame, onStartFlashcards, onStartScenarios, onStartTeam, onStartStaff, onStartServSafe }: {
+function TrainingHub({ L, lang, onStartGame, onStartFlashcards, onStartScenarios, onStartTeam, onStartStaff, onStartServSafe, onStartHandoff }: {
   L: ReturnType<typeof getLocale>;
   lang: Lang;
   onStartGame: () => void;
@@ -714,6 +725,7 @@ function TrainingHub({ L, lang, onStartGame, onStartFlashcards, onStartScenarios
   onStartTeam: () => void;
   onStartStaff: () => void;
   onStartServSafe: () => void;
+  onStartHandoff: () => void;
 }) {
   const isEs = lang === "es";
   const modules: TrainingModule[] = [
@@ -782,6 +794,17 @@ function TrainingHub({ L, lang, onStartGame, onStartFlashcards, onStartScenarios
       timeEs: "⏳ ~20 min / semana",
       timeEn: "⏳ ~20 min / week",
       action: onStartServSafe,
+    },
+    {
+      id: "handoff",
+      emoji: "🔄",
+      labelEs: "Misiones de Handoff",
+      labelEn: "Handoff Missions",
+      descEs: "Simula el traspaso entre turnos en modo arrastrar y soltar. 3 misiones: Apertura→Mañana, Mañana→Tarde, Tarde→Cierre. Aprende el orden correcto de prioridades.",
+      descEn: "Simulate shift handoff in drag-and-drop mode. 3 missions: Opening→Morning, Morning→Afternoon, Afternoon→Closing. Learn the correct priority order.",
+      timeEs: "⏳ 3–5 min / misión",
+      timeEn: "⏳ 3–5 min / mission",
+      action: onStartHandoff,
     },
   ];
 
