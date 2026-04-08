@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import type { Lang } from "@/lib/locales";
 import { MENU_ITEMS, CATEGORY_META, type MenuItem, type MenuCategory } from "@/lib/menu-items";
 
@@ -119,7 +119,237 @@ interface ShuffledStep {
   visual: IngredientVisual;
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Drag-and-Drop Play Screen ─────────────────────────────────────────────────
+
+interface DragPlayProps {
+  item: MenuItem;
+  shuffledSteps: ShuffledStep[];
+  currentStep: number;
+  tappedCorrect: Set<number>;
+  mistakes: number;
+  wrongFlashIdx: number | null;
+  isEs: boolean;
+  labelBack: string;
+  labelBuilt: string;
+  labelDragHint: string;
+  labelFirst: string;
+  labelMistakes: string;
+  onBack: () => void;
+  onDrop: (idx: number) => void;
+}
+
+function DragPlayScreen({
+  item,
+  shuffledSteps,
+  currentStep,
+  tappedCorrect,
+  mistakes,
+  wrongFlashIdx,
+  isEs,
+  labelBack,
+  labelBuilt,
+  labelDragHint,
+  labelFirst,
+  labelMistakes,
+  onBack,
+  onDrop,
+}: DragPlayProps) {
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [ghostPos, setGhostPos] = useState({ x: 0, y: 0 });
+  const [isOverDrop, setIsOverDrop] = useState(false);
+  const dropRef = useRef<HTMLDivElement>(null);
+
+  const totalSteps = item.steps.length;
+
+  // Built-so-far emoji strip (correct order)
+  const builtEmojis: string[] = [];
+  for (let i = 0; i < currentStep; i++) {
+    const found = shuffledSteps.find((s) => s.originalIndex === i);
+    builtEmojis.push(found?.visual.emoji ?? "🍽️");
+  }
+
+  const ghostStep = dragIdx !== null ? shuffledSteps[dragIdx] : null;
+
+  // Check if pointer coords are inside the drop zone
+  function checkOverDrop(x: number, y: number): boolean {
+    const rect = dropRef.current?.getBoundingClientRect();
+    if (!rect) return false;
+    return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+  }
+
+  return (
+    <div className={`flex flex-col gap-3 p-4 pb-8 select-none${dragIdx !== null ? " touch-none" : ""}`}>
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <button onClick={onBack} className="text-[11px] font-bold text-white/50 shrink-0">
+          {labelBack}
+        </button>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-black text-cream truncate">
+            {item.emoji} {isEs ? item.nameEs : item.name}
+          </p>
+        </div>
+        <span className="text-[11px] font-black text-white/50 shrink-0">
+          {currentStep}/{totalSteps}
+        </span>
+      </div>
+
+      {/* Progress bar */}
+      <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-gold rounded-full transition-all duration-300"
+          style={{ width: `${(currentStep / totalSteps) * 100}%` }}
+        />
+      </div>
+
+      {/* Mistakes */}
+      {mistakes > 0 && (
+        <p className="text-[10px] font-black text-red-400 uppercase tracking-widest">
+          ✗ {mistakes} {labelMistakes}
+        </p>
+      )}
+
+      {/* Instruction */}
+      <p className="text-[10px] font-black text-white/50 uppercase tracking-widest text-center">
+        {labelDragHint}
+      </p>
+
+      {/* DROP ZONE — assembly tray */}
+      <div
+        ref={dropRef}
+        className={`rounded-2xl px-4 py-4 min-h-[90px] flex flex-col gap-2 transition-all duration-150
+          ${isOverDrop
+            ? "bg-gold/15 border-2 border-gold/80 shadow-[0_0_24px_rgba(255,188,0,0.25)] scale-[1.01]"
+            : "bg-card border-2 border-dashed border-white/15"
+          }`}
+      >
+        <p className="text-[9px] font-black text-white/30 uppercase tracking-widest">
+          {labelBuilt}
+        </p>
+        <div className="flex flex-wrap gap-2 items-center min-h-[36px]">
+          {/* Already placed emojis */}
+          {builtEmojis.map((em, i) => (
+            <span key={i} className="text-2xl leading-none drop-shadow-sm">{em}</span>
+          ))}
+
+          {/* Next slot indicator */}
+          {currentStep < totalSteps && (
+            <div
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-150
+                ${isOverDrop
+                  ? "bg-gold/30 border-2 border-gold scale-110"
+                  : "bg-white/8 border-2 border-dashed border-white/25 animate-pulse"
+                }`}
+            >
+              {isOverDrop && ghostStep ? (
+                <span className="text-xl leading-none">{ghostStep.visual.emoji}</span>
+              ) : (
+                <span className="text-sm font-black text-white/30">?</span>
+              )}
+            </div>
+          )}
+
+          {/* Empty state */}
+          {builtEmojis.length === 0 && !isOverDrop && (
+            <p className="text-[10px] text-white/20 italic">{labelFirst}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Pool: draggable ingredient cards */}
+      <div className="grid grid-cols-3 gap-3">
+        {shuffledSteps.map((step, i) => {
+          const isDone = tappedCorrect.has(i);
+          const isWrong = wrongFlashIdx === i;
+          const isDragging = dragIdx === i;
+          const label = isEs ? step.visual.labelEs : step.visual.labelEn;
+
+          // Already placed — show faint checkmark placeholder
+          if (isDone) {
+            return (
+              <div
+                key={i}
+                className="aspect-square rounded-2xl bg-emerald-900/10 flex items-center justify-center opacity-20"
+              >
+                <span className="text-2xl text-emerald-500">✓</span>
+              </div>
+            );
+          }
+
+          return (
+            <div
+              key={i}
+              // ─── Drag via Pointer Capture ───────────────────────────────
+              onPointerDown={(e) => {
+                e.preventDefault();
+                // Capture so pointermove/pointerup always fire here
+                e.currentTarget.setPointerCapture(e.pointerId);
+                setDragIdx(i);
+                setGhostPos({ x: e.clientX, y: e.clientY });
+                setIsOverDrop(checkOverDrop(e.clientX, e.clientY));
+              }}
+              onPointerMove={(e) => {
+                if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+                setGhostPos({ x: e.clientX, y: e.clientY });
+                setIsOverDrop(checkOverDrop(e.clientX, e.clientY));
+              }}
+              onPointerUp={(e) => {
+                if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+                if (checkOverDrop(e.clientX, e.clientY)) {
+                  onDrop(i);
+                }
+                setDragIdx(null);
+                setIsOverDrop(false);
+              }}
+              onPointerCancel={() => {
+                setDragIdx(null);
+                setIsOverDrop(false);
+              }}
+              // ────────────────────────────────────────────────────────────
+              className={`flex flex-col items-center justify-center gap-1 rounded-2xl p-3 aspect-square
+                cursor-grab touch-none select-none transition-all duration-150
+                ${isDragging
+                  ? "opacity-20 scale-90 bg-white/5"
+                  : isWrong
+                  ? "bg-red-600/20 border border-red-500/40 scale-95"
+                  : "bg-card active:scale-95"
+                }`}
+            >
+              <span className={`text-4xl leading-none transition-transform ${isWrong ? "scale-90" : ""}`}>
+                {step.visual.emoji}
+              </span>
+              <span className="text-[9px] font-bold text-white/50 text-center leading-tight max-w-full line-clamp-2 px-0.5">
+                {label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Ghost — floating card that follows the pointer during drag */}
+      {dragIdx !== null && ghostStep && (
+        <div
+          className="fixed pointer-events-none z-50 flex flex-col items-center justify-center gap-1 rounded-2xl bg-[#1c1c1e]/95 border-2 border-gold shadow-[0_8px_32px_rgba(0,0,0,0.6)]"
+          style={{
+            left: ghostPos.x - 44,
+            top: ghostPos.y - 56,
+            width: 88,
+            height: 88,
+            transform: `scale(1.2) rotate(${isOverDrop ? "0deg" : "4deg"})`,
+            transition: "transform 0.1s ease",
+          }}
+        >
+          <span className="text-4xl leading-none">{ghostStep.visual.emoji}</span>
+          <span className="text-[9px] font-bold text-white/80 text-center leading-tight px-1 line-clamp-2">
+            {isEs ? ghostStep.visual.labelEs : ghostStep.visual.labelEn}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Component ────────────────────────────────────────────────────────────
 
 export default function MenuBuildGame({
   lang,
@@ -153,9 +383,9 @@ export default function MenuBuildGame({
     close: "✕ Cerrar",
     mastered_of: "dominados",
     steps_label: "pasos",
-    buildInstruction: "¿Cuál va a continuación?",
+    dragHint: "Arrastra el siguiente ingrediente ↓",
     builtSoFar: "Armado",
-    tapFirst: "Empieza a armar",
+    tapFirst: "Arrastra aquí para empezar",
     mistakesLabel: "error(es)",
     tryAgain: "Intentar de nuevo",
     nextItem: "Siguiente:",
@@ -171,9 +401,9 @@ export default function MenuBuildGame({
     close: "✕ Close",
     mastered_of: "mastered",
     steps_label: "steps",
-    buildInstruction: "What goes next?",
+    dragHint: "Drag the next ingredient ↓",
     builtSoFar: "Built",
-    tapFirst: "Start building",
+    tapFirst: "Drag here to start",
     mistakesLabel: "mistake(s)",
     tryAgain: "Try again",
     nextItem: "Next:",
@@ -192,7 +422,6 @@ export default function MenuBuildGame({
   // ── Game actions ──────────────────────────────────────────────────────────
 
   function startGame(selected: MenuItem) {
-    // Always use EN steps for visual matching; display ES text is only for tips
     const stepsEn = selected.steps;
     const shuffled = shuffle(
       stepsEn.map((text, originalIndex) => ({
@@ -211,11 +440,12 @@ export default function MenuBuildGame({
     setView("playing");
   }
 
-  function handleTap(shuffledIdx: number) {
+  function handleDrop(shuffledIdx: number) {
     if (!item || tappedCorrect.has(shuffledIdx)) return;
-    const tapped = shuffledSteps[shuffledIdx];
+    const dropped = shuffledSteps[shuffledIdx];
 
-    if (tapped.originalIndex === currentStep) {
+    if (dropped.originalIndex === currentStep) {
+      // ✓ Correct
       const newTapped = new Set(tappedCorrect);
       newTapped.add(shuffledIdx);
       setTappedCorrect(newTapped);
@@ -231,6 +461,7 @@ export default function MenuBuildGame({
         setView("result");
       }
     } else {
+      // ✗ Wrong
       setMistakes((m) => m + 1);
       setWrongFlashIdx(shuffledIdx);
       setTimeout(() => setWrongFlashIdx(null), 500);
@@ -352,113 +583,25 @@ export default function MenuBuildGame({
     );
   }
 
-  // ── 3. Playing — Visual Grid ──────────────────────────────────────────────
+  // ── 3. Playing — Drag & Drop ──────────────────────────────────────────────
   if (view === "playing" && item) {
-    const totalSteps = item.steps.length;
-
-    // Built so far: collect emojis in correct order
-    const builtEmojis: string[] = [];
-    for (let i = 0; i < currentStep; i++) {
-      const found = shuffledSteps.find((s) => s.originalIndex === i);
-      builtEmojis.push(found?.visual.emoji ?? "🍽️");
-    }
-
     return (
-      <div className="flex flex-col gap-3 p-4 pb-8">
-        {/* Header */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setView("items")}
-            className="text-[11px] font-bold text-white/50 shrink-0"
-          >
-            {t.back}
-          </button>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-black text-cream truncate">
-              {item.emoji} {isEs ? item.nameEs : item.name}
-            </p>
-          </div>
-          <span className="text-[11px] font-black text-white/50 shrink-0">
-            {currentStep}/{totalSteps}
-          </span>
-        </div>
-
-        {/* Progress bar */}
-        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gold rounded-full transition-all duration-300"
-            style={{ width: `${(currentStep / totalSteps) * 100}%` }}
-          />
-        </div>
-
-        {/* Mistakes */}
-        {mistakes > 0 && (
-          <p className="text-[10px] font-black text-red-400 uppercase tracking-widest">
-            ✗ {mistakes} {t.mistakesLabel}
-          </p>
-        )}
-
-        {/* Visual assembly strip */}
-        <div className="bg-card rounded-2xl px-3 py-2.5 min-h-[52px] flex flex-col gap-1">
-          <p className="text-[9px] font-black text-white/30 uppercase tracking-widest">
-            {t.builtSoFar}
-          </p>
-          {builtEmojis.length === 0 ? (
-            <p className="text-[10px] text-white/20 italic">{t.tapFirst}</p>
-          ) : (
-            <div className="flex flex-wrap gap-1 items-center">
-              {builtEmojis.map((em, i) => (
-                <span key={i} className="text-xl leading-none">{em}</span>
-              ))}
-              {currentStep < totalSteps && (
-                <span className="text-base text-white/20 animate-pulse ml-1">?</span>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Instruction */}
-        <p className="text-[10px] font-black text-white/50 uppercase tracking-widest text-center">
-          {t.buildInstruction}
-        </p>
-
-        {/* Visual ingredient grid */}
-        <div className="grid grid-cols-3 gap-2">
-          {shuffledSteps.map((step, i) => {
-            const isDone = tappedCorrect.has(i);
-            const isWrong = wrongFlashIdx === i;
-            const label = isEs ? step.visual.labelEs : step.visual.labelEn;
-            return (
-              <button
-                key={i}
-                onClick={() => !isDone && handleTap(i)}
-                disabled={isDone}
-                aria-label={label}
-                className={`flex flex-col items-center justify-center gap-1 rounded-2xl p-3 aspect-square transition-all duration-150
-                  ${isDone
-                    ? "bg-emerald-900/20 opacity-25 cursor-default scale-95"
-                    : isWrong
-                    ? "bg-red-600/20 border border-red-500/40 scale-95"
-                    : "bg-card active:scale-95 active:bg-white/10"
-                  }`}
-              >
-                {isDone ? (
-                  <span className="text-3xl leading-none text-emerald-500">✓</span>
-                ) : (
-                  <>
-                    <span className={`text-4xl leading-none transition-transform ${isWrong ? "scale-90" : ""}`}>
-                      {step.visual.emoji}
-                    </span>
-                    <span className="text-[9px] font-bold text-white/50 text-center leading-tight max-w-full line-clamp-2 px-0.5">
-                      {label}
-                    </span>
-                  </>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <DragPlayScreen
+        item={item}
+        shuffledSteps={shuffledSteps}
+        currentStep={currentStep}
+        tappedCorrect={tappedCorrect}
+        mistakes={mistakes}
+        wrongFlashIdx={wrongFlashIdx}
+        isEs={isEs}
+        labelBack={t.back}
+        labelBuilt={t.builtSoFar}
+        labelDragHint={t.dragHint}
+        labelFirst={t.tapFirst}
+        labelMistakes={t.mistakesLabel}
+        onBack={() => setView("items")}
+        onDrop={handleDrop}
+      />
     );
   }
 
@@ -468,7 +611,6 @@ export default function MenuBuildGame({
     const headline = resultStars === 3 ? t.stars3 : resultStars === 2 ? t.stars2 : t.stars1;
     const tip = isEs ? item.tipEs : item.tipEn;
 
-    // Show ingredient strip in correct assembly order
     const assemblyEmojis = item.steps.map((s) => getIngredientVisual(s).emoji);
 
     return (
