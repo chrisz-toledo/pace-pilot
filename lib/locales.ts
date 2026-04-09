@@ -7,7 +7,7 @@ export const locales = {
   es: {
     app: {
       name: "PACE-Pilot",
-      tagline: "PACE Operacional · Formación MIT",
+      tagline: "Inteligencia Operacional · Formación MiT",
       events_count: (n: number) => `${n} evento${n !== 1 ? "s" : ""}`,
     },
     nav: {
@@ -60,10 +60,10 @@ export const locales = {
       PROCEDURE_DEVIATION: "Desviación SOP",
     },
     roles: {
-      MIT_DIRECTOR: "MIT Director",
+      MIT_DIRECTOR: "MiT Director",
       GM_FACILITY: "General Manager",
       AREA_SUPERVISOR: "Area Supervisor",
-      CREW_OPERATOR: "Crew Operator",
+      CREW_OPERATOR: "Crew Member",
     },
     five_s: {
       Seiri: "Seiri — Clasificar",
@@ -109,9 +109,9 @@ export const locales = {
       close_btn: "Cerrar",
     },
     train: {
-      title: "Formación MIT",
-      subtitle: "Módulo de entrenamiento",
-      description: "Estándares operacionales y metodología 5S para líderes en crecimiento.",
+      title: "Formación MiT",
+      subtitle: "Centro de Desarrollo MiT",
+      description: "Estándares Gold Standard, metodología 5S y protocolos de Food Safety para líderes McDonald's en crecimiento.",
       five_s_module: "Metodología 5S",
       uhc_title: "Estándares UHC — Holding Times",
       gold_standard_title: "Gold Standard Builds",
@@ -133,7 +133,7 @@ export const locales = {
   en: {
     app: {
       name: "PACE-Pilot",
-      tagline: "PACE Operations · MIT Training",
+      tagline: "Operational Intelligence · MiT Training",
       events_count: (n: number) => `${n} event${n !== 1 ? "s" : ""}`,
     },
     nav: {
@@ -186,10 +186,10 @@ export const locales = {
       PROCEDURE_DEVIATION: "Procedure deviation",
     },
     roles: {
-      MIT_DIRECTOR: "MIT Director",
+      MIT_DIRECTOR: "MiT Director",
       GM_FACILITY: "General Manager",
       AREA_SUPERVISOR: "Area Supervisor",
-      CREW_OPERATOR: "Crew Operator",
+      CREW_OPERATOR: "Crew Member",
     },
     five_s: {
       Seiri: "Seiri — Sort",
@@ -235,9 +235,9 @@ export const locales = {
       close_btn: "Close",
     },
     train: {
-      title: "MIT Training",
-      subtitle: "Training module",
-      description: "Operational standards and 5S methodology for leaders in growth.",
+      title: "MiT Training",
+      subtitle: "MiT Development Center",
+      description: "Gold Standard, 5S methodology and Food Safety protocols for McDonald's leaders in growth.",
       five_s_module: "5S Methodology",
       uhc_title: "UHC Standards — Holding Times",
       gold_standard_title: "Gold Standard Builds",

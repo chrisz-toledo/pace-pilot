@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="112" fill="#DA291C"/>
+  <!-- Golden arches M -->
+  <path d="M96 340 C96 220 140 160 176 160 C200 160 224 188 256 240 C288 188 312 160 336 160 C372 160 416 220 416 340 L416 360 L368 360 L368 300 C368 248 352 208 336 208 C320 208 296 244 256 320 C216 244 192 208 176 208 C160 208 144 248 144 300 L144 360 L96 360 Z" fill="#FFBC0D"/>
+  <!-- Bottom golden bar -->
+  <rect x="96" y="360" width="320" height="24" rx="12" fill="#FFBC0D"/>
+  <!-- P A C E text -->
+  <text x="256" y="430" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="48" font-weight="900" fill="#FDFDFB" text-anchor="middle" letter-spacing="6">PACE</text>
+</svg>

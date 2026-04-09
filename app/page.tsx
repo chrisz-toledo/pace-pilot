@@ -30,6 +30,7 @@ import TeamCoord from "./TeamCoord";
 import StaffManager from "./StaffManager";
 import ServSafeModule from "./ServSafeModule";
 import HandoffGame from "./HandoffGame";
+import CertDashboard from "./CertDashboard";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -140,23 +141,30 @@ export default function App() {
   return (
     <div className="flex flex-col h-[100dvh] bg-onyx overflow-hidden">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 bg-surface border-b border-white/10 shrink-0">
-        <div className="flex items-center gap-2">
-          <span className="text-gold font-black text-lg tracking-tight">PACE-Pilot</span>
-          <span className="text-[10px] font-bold text-gold/50 uppercase tracking-widest">v0.1</span>
+      <header className="flex items-center justify-between px-4 py-2.5 shrink-0" style={{ background: "#DA291C", borderBottom: "1px solid rgba(0,0,0,0.25)" }}>
+        <div className="flex items-center gap-2.5">
+          {/* McDonald's-style wordmark */}
+          <div className="flex items-center gap-1.5">
+            <span style={{ fontSize: 18, fontWeight: 900, color: "#FFBC0D", letterSpacing: "-0.02em", lineHeight: 1 }}>PACE</span>
+            <span style={{ fontSize: 10, fontWeight: 900, color: "rgba(255,255,255,0.5)", marginTop: 1 }}>·</span>
+            <span style={{ fontSize: 14, fontWeight: 900, color: "rgba(255,255,255,0.9)", letterSpacing: "0.04em" }}>Pilot</span>
+          </div>
+          <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: "0.12em", marginTop: 1 }}>MiT</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold text-white/40 uppercase">{L.app.events_count(events.length)}</span>
+          <span className="text-[10px] font-bold text-white/50 uppercase">{L.app.events_count(events.length)}</span>
           <button
             onClick={() => setLang((l) => (l === "es" ? "en" : "es"))}
-            className="text-[10px] font-black text-white/60 uppercase tracking-widest px-2 py-1 rounded border border-white/20 active:bg-white/10 min-w-[36px] text-center"
+            className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded"
+            style={{ background: "rgba(0,0,0,0.2)", color: "rgba(255,255,255,0.8)", minWidth: 36, textAlign: "center" }}
             title="Toggle language / Cambiar idioma"
           >
             {lang === "es" ? "EN" : "ES"}
           </button>
           <button
             onClick={handleSeed}
-            className="text-[10px] font-bold text-gold/60 uppercase tracking-widest px-2 py-1 rounded border border-gold/20 active:bg-gold/10"
+            className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded"
+            style={{ background: "rgba(0,0,0,0.15)", color: "#FFBC0D" }}
           >
             {L.header.reset}
           </button>
@@ -317,12 +325,20 @@ function NavBtn({ active, onClick, icon, label, gold }: {
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center justify-center py-3 gap-0.5 transition-colors ${
-        gold ? "text-gold font-black" : active ? "text-gold" : "text-white/40"
+      style={{ position: "relative" }}
+      className={`flex flex-col items-center justify-center py-3 gap-0.5 transition-smooth ${
+        gold ? "text-gold font-black" : active ? "text-gold" : "text-white/30"
       }`}
     >
+      {active && !gold && (
+        <span style={{
+          position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)",
+          width: 24, height: 2, borderRadius: 1,
+          background: "#FFBC0D",
+        }} />
+      )}
       <span className={`text-xl leading-none ${gold ? "text-2xl" : ""}`}>{icon}</span>
-      <span className="text-[10px] font-bold uppercase tracking-widest">{label}</span>
+      <span className={`text-[10px] uppercase tracking-widest ${active || gold ? "font-black" : "font-bold"}`}>{label}</span>
     </button>
   );
 }
@@ -413,7 +429,7 @@ function EventCard({ event, onTap, L }: {
   return (
     <button
       onClick={onTap}
-      className="bg-card rounded-2xl p-4 text-left active:scale-[0.98] transition-transform w-full"
+      className="bg-card rounded-2xl p-4 text-left card-press transition-smooth w-full"
     >
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-2 flex-wrap">
@@ -810,31 +826,15 @@ function TrainingHub({ L, lang, onStartGame, onStartFlashcards, onStartScenarios
 
   return (
     <div className="p-3 flex flex-col gap-4 pb-8">
-      {/* Header */}
-      <div className="bg-card rounded-2xl p-4 border border-gold/20">
-        <p className="text-[10px] font-black text-gold/60 uppercase tracking-widest mb-1">{L.train.subtitle}</p>
-        <p className="text-xl font-black text-gold">{L.train.title}</p>
-        <p className="text-xs text-white/50 mt-1.5 leading-relaxed">{L.train.description}</p>
-      </div>
+      {/* Cert Dashboard */}
+      <CertDashboard lang={lang} />
 
       {/* Interactive Modules */}
       <div>
         <SectionLabel>{isEs ? "Módulos Interactivos" : "Interactive Modules"}</SectionLabel>
         <div className="flex flex-col gap-2">
           {modules.map((m) => (
-            <button
-              key={m.id}
-              onClick={m.action}
-              className="bg-card rounded-2xl p-4 flex items-center gap-3 active:scale-[0.98] transition-transform text-left"
-            >
-              <span className="text-3xl leading-none shrink-0">{m.emoji}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-black text-cream">{isEs ? m.labelEs : m.labelEn}</p>
-                <p className="text-[10px] text-white/40 mt-0.5 leading-snug">{isEs ? m.descEs : m.descEn}</p>
-                <p className="text-[10px] text-gold/50 mt-1">{isEs ? m.timeEs : m.timeEn}</p>
-              </div>
-              <span className="text-white/30 text-lg shrink-0">›</span>
-            </button>
+            <ModuleCard key={m.id} m={m} isEs={isEs} />
           ))}
         </div>
       </div>
@@ -842,6 +842,53 @@ function TrainingHub({ L, lang, onStartGame, onStartFlashcards, onStartScenarios
       {/* Static reference content below */}
       <TrainingTab L={L} onStartGame={onStartGame} />
     </div>
+  );
+}
+
+// Per-card component so each can read its own progress
+function ModuleCard({ m, isEs }: { m: TrainingModule; isEs: boolean }) {
+  // Small inline progress label on certain cards
+  const progressMap: Record<string, { key: string; compute: (r: string | null) => number }> = {
+    game:     { key: "pace_mastery",         compute: (r) => { if (!r) return 0; try { const d = JSON.parse(r) as Record<string, { correct: number; total: number }>; const e = Object.values(d); const t = e.reduce((s, x) => s + x.total, 0); const c = e.reduce((s, x) => s + x.correct, 0); return t > 0 ? Math.round((c / t) * 100) : 0; } catch { return 0; } } },
+    handoff:  { key: "pace_handoff_mastery", compute: (r) => { if (!r) return 0; try { const d = JSON.parse(r) as Record<string, boolean>; const ms = ["open_morning","morning_afternoon","afternoon_closing"]; return Math.round(ms.filter((x) => d[x]).length / ms.length * 100); } catch { return 0; } } },
+    servsafe: { key: "pace_servsafe_done",   compute: (r) => { if (!r) return 0; try { const d = JSON.parse(r) as Record<string, boolean>; const ms = ["big6","temps","fattom","hygiene","xcontam","sanitize"]; return Math.round(ms.filter((x) => d[x]).length / ms.length * 100); } catch { return 0; } } },
+    staff:    { key: "pace_crew_roster",     compute: (r) => { if (!r) return 0; try { const roster = JSON.parse(r) as Array<{ ratings?: Record<string, number> }>; if (!roster.length) return 0; return Math.round(roster.filter((x) => x.ratings && Object.keys(x.ratings).length > 0).length / roster.length * 100); } catch { return 0; } } },
+  };
+  const [pct, setPct] = useState<number | null>(null);
+  useEffect(() => {
+    const pm = progressMap[m.id];
+    if (pm) setPct(pm.compute(localStorage.getItem(pm.key)));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [m.id]);
+
+  const barColor = pct !== null ? (pct >= 80 ? "#FFBC0D" : pct >= 40 ? "#f97316" : "#DA291C") : null;
+
+  return (
+    <button
+      onClick={m.action}
+      className="bg-card rounded-2xl p-4 flex items-center gap-3 card-press text-left"
+      style={{ border: "1px solid rgba(255,255,255,0.06)" }}
+    >
+      <span className="text-3xl leading-none shrink-0">{m.emoji}</span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-black text-cream">{isEs ? m.labelEs : m.labelEn}</p>
+          {pct !== null && pct > 0 && (
+            <span style={{ fontSize: 11, fontWeight: 900, color: barColor ?? "#FFBC0D", marginLeft: 8, flexShrink: 0 }}>{pct}%</span>
+          )}
+        </div>
+        <p className="text-[10px] text-white/40 mt-0.5 leading-snug">{isEs ? m.descEs : m.descEn}</p>
+        {pct !== null && pct > 0 && (
+          <div style={{ height: 3, background: "rgba(255,255,255,0.1)", borderRadius: 2, marginTop: 6, overflow: "hidden" }}>
+            <div className="progress-bar" style={{ height: "100%", borderRadius: 2, background: barColor ?? "#FFBC0D", width: `${pct}%` }} />
+          </div>
+        )}
+        {(pct === null || pct === 0) && (
+          <p className="text-[10px] text-gold/50 mt-1">{isEs ? m.timeEs : m.timeEn}</p>
+        )}
+      </div>
+      <span className="text-white/30 text-lg shrink-0">›</span>
+    </button>
   );
 }
 
