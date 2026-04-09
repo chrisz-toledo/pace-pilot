@@ -27,6 +27,22 @@ export const CATEGORY_META: Record<MenuCategory, { emoji: string; labelEs: strin
   sides:      { emoji: "🍟", labelEs: "Acompañamientos",   labelEn: "Sides" },
 };
 
+export interface MenuCategoryItem {
+  id: MenuCategory;
+  emoji: string;
+  nameEn: string;
+  nameEs: string;
+}
+
+export const MENU_CATEGORIES: MenuCategoryItem[] = (
+  Object.entries(CATEGORY_META) as [MenuCategory, { emoji: string; labelEs: string; labelEn: string }][]
+).map(([id, meta]) => ({
+  id,
+  emoji: meta.emoji,
+  nameEn: meta.labelEn,
+  nameEs: meta.labelEs,
+}));
+
 export const MENU_ITEMS: MenuItem[] = [
 
   // ─── BREAKFAST ──────────────────────────────────────────────────────────────
